@@ -1,14 +1,12 @@
-// deno-lint-ignore-file no-empty-interface
-import chalk from "chalk";
 import { TypeNotMatchError } from "../errors/valid.error.ts";
-import type { Floating, Mixed, Numeric } from "../types/value.type.ts";
-import { getParams, getPrecisions } from "../utils/advance.utils.ts";
 import { ValueError } from "../errors/value.error.ts";
+import type { Floating, Numeric } from "../types/value.type.ts";
+import { getPrecisions } from "../utils/advance.utils.ts";
 
 abstract class OpaqueNumeric<
   T extends string,
   U extends boolean,
-  V extends Mixed
+  V extends number | bigint,
 > {
   abstract readonly __type: T;
   abstract readonly __unsigned: U;
@@ -19,11 +17,11 @@ abstract class OpaqueNumeric<
 
   constructor(public readonly value: V) {}
 
-  toString() {
+  toString(): string {
     return String(this.value);
   }
 
-  valueOf() {
+  valueOf(): V {
     return this.value;
   }
 }
@@ -31,7 +29,7 @@ abstract class OpaqueNumeric<
 abstract class OpaqueFloating<
   T extends string,
   P extends number,
-  V extends Mixed
+  V extends number,
 > {
   abstract readonly __type: T;
   abstract readonly __precision: P;
@@ -40,273 +38,153 @@ abstract class OpaqueFloating<
 
   constructor(public readonly value: V) {}
 
-  toString() {
+  toString(): string {
     return String(this.value);
   }
 
-  valueOf() {
+  valueOf(): V {
     return this.value;
   }
 }
 
-export class Integer
-  extends OpaqueNumeric<"integer", false, number>
-  implements Numeric<"integer", false>
-{
+/** Throws a {@link ValueError} unless `min <= value <= max`. */
+function assertInRange(
+  value: number | bigint,
+  min: number | bigint,
+  max: number | bigint,
+  typeName: string,
+): void {
+  if (value < min) {
+    throw new ValueError(
+      `Value (${value}) is below the minimum allowed ${typeName} value (${min}).`,
+    );
+  }
+
+  if (value > max) {
+    throw new ValueError(
+      `Value (${value}) exceeds the maximum allowed ${typeName} value (${max}).`,
+    );
+  }
+}
+
+/** Throws a {@link TypeNotMatchError} unless `value` has no fractional part. */
+function assertWholeNumber(value: number, typeName: string): void {
+  if (getPrecisions(value) > 0) {
+    throw new TypeNotMatchError(
+      `Value must be a whole ${typeName} and must not have a fractional part.`,
+    );
+  }
+}
+
+/**
+ * Throws a {@link TypeNotMatchError} unless `value` has between 1 and
+ * `maxPrecision` digits after the decimal point.
+ */
+function assertPrecisionWithin(
+  value: number,
+  maxPrecision: number,
+  typeName: string,
+): void {
+  const precisions = getPrecisions(value);
+
+  if (precisions < 1) {
+    throw new TypeNotMatchError(
+      `Value must be a ${typeName} and have at least one decimal digit.`,
+    );
+  }
+
+  if (precisions > maxPrecision) {
+    throw new TypeNotMatchError(
+      `Value must be a ${typeName} and have at most ${maxPrecision} decimal digits.`,
+    );
+  }
+}
+
+/** A validated, wrapped 32-bit signed integer. */
+export class Integer extends OpaqueNumeric<"integer", false, number>
+  implements Numeric<"integer", false> {
   override readonly __type = "integer";
   override readonly __unsigned = false;
   override readonly __bitWidth = 32;
   override readonly __minValue = -(2 ** 31);
-  override readonly __maxValue = 2 ** 31;
+  override readonly __maxValue = 2 ** 31 - 1;
   override readonly __bitLength = 4;
 
   constructor(value: number) {
     super(value);
-
-    Integer.validate(value, this);
+    assertWholeNumber(value, this.__type);
+    assertInRange(value, this.__minValue, this.__maxValue, this.__type);
   }
 
-  private static validate(value: number, instance: Integer) {
-    const [paramName] = getParams(this.validate);
-    const precisions = getPrecisions(value);
-
-    if (precisions > 0) {
-      throw new TypeNotMatchError(
-        `${chalk.red(
-          `${chalk.bold(paramName)} should be an ${chalk.bold(
-            instance.__type
-          )} and not have any precisions.`
-        )}`
-      );
-    }
-
-    if (value < instance.__minValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with minimum value (${chalk.bold(
-            instance.__minValue
-          )})`
-        )}`
-      );
-    }
-
-    if (value > instance.__maxValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with maximum value (${chalk.bold(
-            instance.__maxValue
-          )})`
-        )}`
-      );
-    }
-  }
-
-  static of(value: number) {
+  static of(value: number): Integer {
     return new Integer(value);
   }
-
-  override toString(): string {
-    return this.value.toString();
-  }
-
-  override valueOf(): number {
-    return this.value;
-  }
 }
 
-export class Long
-  extends OpaqueNumeric<"long", false, bigint>
-  implements Numeric<"long", false>
-{
-  override readonly __type = "long";
-  override readonly __unsigned = false;
-  override readonly __bitWidth = 64;
-  override readonly __minValue = -(2 ** 63);
-  override readonly __maxValue = 2 ** 63;
-  override readonly __bitLength = 8;
-
-  constructor(value: bigint) {
-    super(value);
-
-    Long.validate(value, this);
-  }
-
-  private static validate(value: bigint, instance: Long) {
-    const [paramName] = getParams(this.validate);
-
-    if (value < instance.__minValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with minimum value (${chalk.bold(
-            instance.__minValue
-          )})`
-        )}`
-      );
-    }
-
-    if (value > instance.__maxValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with maximum value (${chalk.bold(
-            instance.__maxValue
-          )})`
-        )}`
-      );
-    }
-  }
-
-  static of(value: bigint) {
-    return new Long(value);
-  }
-
-  override toString(): string {
-    return this.value.toString();
-  }
-
-  override valueOf(): bigint {
-    return this.value;
-  }
-}
-
-export class UInteger
-  extends OpaqueNumeric<"unsigned integer", true, number>
-  implements Numeric<"unsigned integer", true>
-{
+/** A validated, wrapped 32-bit unsigned integer. */
+export class UInteger extends OpaqueNumeric<"unsigned integer", true, number>
+  implements Numeric<"unsigned integer", true> {
   override readonly __type = "unsigned integer";
   override readonly __unsigned = true;
   override readonly __bitWidth = 32;
   override readonly __minValue = 0;
-  override readonly __maxValue = 2 ** 32;
+  override readonly __maxValue = 2 ** 32 - 1;
   override readonly __bitLength = 4;
 
   constructor(value: number) {
     super(value);
-
-    UInteger.validate(value, this);
+    assertWholeNumber(value, this.__type);
+    assertInRange(value, this.__minValue, this.__maxValue, this.__type);
   }
 
-  private static validate(value: number, instance: UInteger) {
-    const [paramName] = getParams(this.validate);
-    const precisions = getPrecisions(value);
-
-    if (precisions > 0) {
-      throw new TypeNotMatchError(
-        `${chalk.red(
-          `${chalk.bold(paramName)} should be an ${chalk.bold(
-            instance.__type
-          )} and not have any precisions.`
-        )}`
-      );
-    }
-
-    if (value < instance.__minValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with minimum value (${chalk.bold(
-            instance.__minValue
-          )})`
-        )}`
-      );
-    }
-
-    if (value > instance.__maxValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with maximum value (${chalk.bold(
-            instance.__maxValue
-          )})`
-        )}`
-      );
-    }
-  }
-
-  static of(value: number) {
+  static of(value: number): UInteger {
     return new UInteger(value);
-  }
-
-  override toString(): string {
-    return this.value.toString();
-  }
-
-  override valueOf(): number {
-    return this.value;
   }
 }
 
-export class ULong
-  extends OpaqueNumeric<"unsigned long", true, bigint>
-  implements Numeric<"unsigned long", true>
-{
-  override readonly __type = "unsigned long";
-  override readonly __unsigned = true;
+/** A validated, wrapped 64-bit signed integer. */
+export class Long extends OpaqueNumeric<"long", false, bigint>
+  implements Numeric<"long", false> {
+  override readonly __type = "long";
+  override readonly __unsigned = false;
   override readonly __bitWidth = 64;
-  override readonly __minValue = 0;
-  override readonly __maxValue = 2 ** 64;
+  override readonly __minValue = -(2n ** 63n);
+  override readonly __maxValue = 2n ** 63n - 1n;
   override readonly __bitLength = 8;
 
   constructor(value: bigint) {
     super(value);
-
-    ULong.validate(value, this);
+    assertInRange(value, this.__minValue, this.__maxValue, this.__type);
   }
 
-  private static validate(value: bigint, instance: ULong) {
-    const [paramName] = getParams(this.validate);
-
-    if (value < instance.__minValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with minimum value (${chalk.bold(
-            instance.__minValue
-          )})`
-        )}`
-      );
-    }
-
-    if (value > instance.__maxValue) {
-      throw new ValueError(
-        `${chalk.red(
-          `Param ${chalk.bold(paramName)} value (${chalk.bold(
-            value
-          )}) does not match with maximum value (${chalk.bold(
-            instance.__maxValue
-          )})`
-        )}`
-      );
-    }
-  }
-
-  static of(value: bigint) {
-    return new ULong(value);
-  }
-
-  override toString(): string {
-    return this.value.toString();
-  }
-
-  override valueOf(): bigint {
-    return this.value;
+  static of(value: bigint): Long {
+    return new Long(value);
   }
 }
 
-export class Float
-  extends OpaqueFloating<"float", 7, number>
-  implements Floating<"float", 7>
-{
+/** A validated, wrapped 64-bit unsigned integer. */
+export class ULong extends OpaqueNumeric<"unsigned long", true, bigint>
+  implements Numeric<"unsigned long", true> {
+  override readonly __type = "unsigned long";
+  override readonly __unsigned = true;
+  override readonly __bitWidth = 64;
+  override readonly __minValue = 0n;
+  override readonly __maxValue = 2n ** 64n - 1n;
+  override readonly __bitLength = 8;
+
+  constructor(value: bigint) {
+    super(value);
+    assertInRange(value, this.__minValue, this.__maxValue, this.__type);
+  }
+
+  static of(value: bigint): ULong {
+    return new ULong(value);
+  }
+}
+
+/** A validated, wrapped 32-bit float (up to 7 significant decimal digits). */
+export class Float extends OpaqueFloating<"float", 7, number>
+  implements Floating<"float", 7> {
   override readonly __type = "float";
   override readonly __precision = 7;
   override readonly __bitWidth = 32;
@@ -314,52 +192,17 @@ export class Float
 
   constructor(value: number) {
     super(value);
-
-    Float.validate(value, this);
+    assertPrecisionWithin(value, this.__precision, this.__type);
   }
 
-  private static validate(value: number, instance: Float) {
-    const [paramName] = getParams(this.validate);
-    const precisions = getPrecisions(value);
-
-    if (precisions < 1) {
-      throw new TypeNotMatchError(
-        `${chalk.red(
-          `${chalk.bold(paramName)} should be an ${chalk.bold(
-            instance.__type
-          )} and have at least one precision.`
-        )}`
-      );
-    }
-
-    if (precisions > instance.__precision) {
-      throw new TypeNotMatchError(
-        `${chalk.red(
-          `${chalk.bold(paramName)} should be an ${chalk.bold(
-            instance.__type
-          )} and have maximum of (${chalk.bold(instance.__precision)}).`
-        )}`
-      );
-    }
-  }
-
-  static of(value: number) {
+  static of(value: number): Float {
     return new Float(value);
-  }
-
-  override toString(): string {
-    return this.value.toString();
-  }
-
-  override valueOf(): number {
-    return this.value;
   }
 }
 
-export class Decimal
-  extends OpaqueFloating<"decimal", 15, number>
-  implements Floating<"decimal", 15>
-{
+/** A validated, wrapped 64-bit float (up to 15 significant decimal digits). */
+export class Decimal extends OpaqueFloating<"decimal", 15, number>
+  implements Floating<"decimal", 15> {
   override readonly __type = "decimal";
   override readonly __precision = 15;
   override readonly __bitWidth = 64;
@@ -367,56 +210,10 @@ export class Decimal
 
   constructor(value: number) {
     super(value);
-
-    Decimal.validate(value, this);
+    assertPrecisionWithin(value, this.__precision, this.__type);
   }
 
-  private static validate(value: number, instance: Decimal) {
-    const [paramName] = getParams(this.validate);
-    const precisions = getPrecisions(value);
-
-    if (precisions < 1) {
-      throw new TypeNotMatchError(
-        `${chalk.red(
-          `${chalk.bold(paramName)} should be an ${chalk.bold(
-            instance.__type
-          )} and have at least one precision.`
-        )}`
-      );
-    }
-
-    if (precisions > instance.__precision) {
-      throw new TypeNotMatchError(
-        `${chalk.red(
-          `${chalk.bold(paramName)} should be an ${chalk.bold(
-            instance.__type
-          )} and have maximum of (${chalk.bold(instance.__precision)}).`
-        )}`
-      );
-    }
-  }
-
-  static of(value: number) {
+  static of(value: number): Decimal {
     return new Decimal(value);
   }
-
-  override toString(): string {
-    return this.value.toString();
-  }
-
-  override valueOf(): number {
-    return this.value;
-  }
 }
-
-export interface Integer {}
-
-export interface Long {}
-
-export interface UInteger {}
-
-export interface ULong {}
-
-export interface Float {}
-
-export interface Decimal {}

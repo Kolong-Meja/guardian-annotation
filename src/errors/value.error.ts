@@ -1,39 +1,16 @@
-export class ValueError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "ValueError";
-    Object.setPrototypeOf(this, ValueError.prototype);
-  }
-}
+import { GuardianError } from "./guardian.error.ts";
 
-export class ValueLengthError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "ValueLengthError";
-    Object.setPrototypeOf(this, ValueLengthError.prototype);
-  }
-}
+/** Thrown when a numeric value falls outside an allowed range. */
+export class ValueError extends GuardianError {}
 
-export class ValueNotMatchError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "ValueNotMatchError";
-    Object.setPrototypeOf(this, ValueNotMatchError.prototype);
-  }
-}
+/** Thrown when a string/array/object length falls outside an allowed range. */
+export class ValueLengthError extends GuardianError {}
 
-export class NullValueError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "NullValueError";
-    Object.setPrototypeOf(this, NullValueError.prototype);
-  }
-}
+/** Thrown when a value does not match an expected pattern. */
+export class ValueNotMatchError extends GuardianError {}
 
-export class UndefinedValueError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "UndefinedValueError";
-    Object.setPrototypeOf(this, UndefinedValueError.prototype);
-  }
-}
+/** Thrown when a value is `null` but must not be. */
+export class NullValueError extends GuardianError {}
+
+/** Thrown when a value is `undefined` but must be defined. */
+export class UndefinedValueError extends GuardianError {}

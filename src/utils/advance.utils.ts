@@ -1,19 +1,12 @@
 import type { Mixed } from "../types/value.type.ts";
 
-export function getParams(func: Mixed) {
-  const STRIP_COMMENTS =
-    /(\/\/.*$)|(\/\*[\s\S]*?\*\/)|(\s*=[^,\)]*(('(?:\\'|[^'\r\n])*')|("(?:\\"|[^"\r\n])*"))|(\s*=[^,\)]*))/gm;
-  const ARGUMENT_NAMES = /([^\s,]+)/g;
-
-  const fnStr = func.toString().replace(STRIP_COMMENTS, "");
-  const result = fnStr
-    .slice(fnStr.indexOf("(") + 1, fnStr.indexOf(")"))
-    .match(ARGUMENT_NAMES);
-
-  return result;
-}
-
-export function getPrecisions(value: Mixed) {
+/**
+ * Counts how many digits follow the decimal point in `value`.
+ *
+ * Used to tell whole numbers apart from fractional ones (e.g. for the
+ * {@link Integer} vs {@link Float} opaque types) without string parsing.
+ */
+export function getPrecisions(value: number): number {
   if (!isFinite(value)) return 0;
 
   let e = 1;
@@ -27,6 +20,7 @@ export function getPrecisions(value: Mixed) {
   return p;
 }
 
-export function itHasDuplicates<S extends Array<Mixed>>(subjects: S) {
+/** Returns `true` if `subjects` contains any duplicate values. */
+export function itHasDuplicates<S extends Array<Mixed>>(subjects: S): boolean {
   return new Set(subjects).size !== subjects.length;
 }

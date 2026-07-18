@@ -1,23 +1,16 @@
-export class TypeNotMatchError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "TypeNotMatchError";
-    Object.setPrototypeOf(this, TypeNotMatchError.prototype);
-  }
-}
+import { GuardianError } from "./guardian.error.ts";
 
-export class NotValidEmailError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "NotValidEmailError";
-    Object.setPrototypeOf(this, NotValidEmailError.prototype);
-  }
-}
+/** Thrown when a value does not match the expected runtime type. */
+export class TypeNotMatchError extends GuardianError {}
 
-export class NotValidURLError extends Error {
-  constructor(message: string | undefined) {
-    super(message);
-    this.name = "NotValidURLError";
-    Object.setPrototypeOf(this, NotValidURLError.prototype);
-  }
-}
+/** Thrown when a string fails email-format validation. */
+export class NotValidEmailError extends GuardianError {}
+
+/** Thrown when a string fails URL-format validation. */
+export class NotValidURLError extends GuardianError {}
+
+/** Thrown when a string fails name-format validation. */
+export class NotValidNameError extends GuardianError {}
+
+/** Thrown when a string fails phone-number-format validation. */
+export class NotValidPhoneNumberError extends GuardianError {}
